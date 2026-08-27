@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dodge the Chaos</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      margin: 15px 0 5px;
+      font-size: 30px;
+    }
+
+    p {
+      margin: 5px;
+    }
+
+    #gameContainer {
+      width: 100%;
+      max-width: 650px;
+      margin: auto;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #222;
+      border: 3px solid white;
+      border-radius: 8px;
+      margin: 10px auto;
+      touch-action: none;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 12px 25px;
+      cursor: pointer;
+    }
+
+    #start {
+      margin: 5px;
+    }
+
+    /* MOBILE CONTROLS */
+
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 10px;
+      user-select: none;
+    }
+
+    .control {
+      width: 110px;
+      height: 65px;
+      font-size: 32px;
+      background: #333;
+      color: white;
+      border: 2px solid white;
+      touch-action: none;
+    }
+
+    .control:active {
+      background: #666;
+      transform: scale(0.95);
+    }
+
+    @media (min-width: 700px) {
+      #controls {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="gameContainer">
+
+    <h1>💀 Dodge the Chaos</h1>
+
+    <p>
+      Score: <span id="score">0</span>
+    </p>
+
+    <canvas id="canvas" width="600" height="350"></canvas>
+
+    <button id="start">START GAME</button>
+
+    <div id="controls">
+
+      <button class="control" id="left">
+        ⬅️
+      </button>
+
+      <button class="control" id="right">
+        ➡️
+      </button>
+
+    </div>
+
+  </div>
+
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const scoreText = document.getElementById("score");
+const startButton = document.getElementById("start");
+
+const leftButton = document.getElementById("left");
+const rightButton = document.getElementById("right");
+
+
+let player;
+let blocks;
+let score;
+let playing;
+let lastTime;
+let spawnTimer;
+
+
+const keys = {};
+
+
+// ========================
+// KEYBOARD CONTROLS
+// ========================
+
+document.addEventListener("keydown", function(e) {
+
+  keys[e.key.toLowerCase()] = true;
+
+});
+
+
+document.addEventListener("keyup", function(e) {
+
+  keys[e.key.toLowerCase()] = false;
+
+});
+
+
+// ========================
+// TOUCH CONTROLS
+// ========================
+
+let touchingLeft = false;
+let touchingRight = false;
+
+
+// LEFT BUTTON
+
+leftButton.addEventListener("pointerdown", function(e) {
+
+  e.preventDefault();
+
+  touchingLeft = true;
+
+});
+
+leftButton.addEventListener("pointerup", function(e) {
+
+  e.preventDefault();
+
+  touchingLeft = false;
+
+});
+
+leftButton.addEventListener("pointercancel", function() {
+
+  touchingLeft = false;
+
+});
+
+leftButton.addEventListener("pointerleave", function() {
+
+  touchingLeft = false;
+
+});
+
+
+// RIGHT BUTTON
+
+rightButton.addEventListener("pointerdown", function(e) {
+
+  e.preventDefault();
+
+  touchingRight = true;
+
+});
+
+rightButton.addEventListener("pointerup", function(e) {
+
+  e.preventDefault();
+
+  touchingRight = false;
+
+});
+
+rightButton.addEventListener("pointercancel", function() {
+
+  touchingRight = false;
+
+});
+
+rightButton.addEventListener("pointerleave", function() {
+
+  touchingRight = false;
+
+});
+
+
+// ========================
+// START GAME
+// ========================
+
+function startGame() {
+
+  player = {
+
+    x: 275,
+
+    y: 315,
+
+    width: 50,
+
+    height: 20,
+
+    speed: 300
+
+  };
+
+
+  blocks = [];
+
+
+  score = 0;
+
+
+  playing = true;
+
+
+  spawnTimer = 0;
+
+
+  lastTime = performance.now();
+
+
+  scoreText.textContent = "0";
+
+
+  startButton.textContent = "RESTART";
+
+
+  requestAnimationFrame(gameLoop);
+
+}
+
+
+// ========================
+// CREATE ENEMY
+// ========================
+
+function spawnBlock() {
+
+  const size = 20 + Math.random() * 25;
+
+
+  blocks.push({
+
+    x: Math.random() * (canvas.width - size),
+
+    y: -size,
+
+    width: size,
+
+    height: size,
+
+    speed: 150 + Math.random() * 150
+
+  });
+
+}
+
+
+// ========================
+// COLLISION
+// ========================
+
+function collision(a, b) {
+
+  return (
+
+    a.x < b.x + b.width &&
+
+    a.x + a.width > b.x &&
+
+    a.y < b.y + b.height &&
+
+    a.y + a.height > b.y
+
+  );
+
+}
+
+
+// ========================
+// GAME LOOP
+// ========================
+
+function gameLoop(time) {
+
+  if (!playing) return;
+
+
+  const delta = (time - lastTime) / 1000;
+
+
+  lastTime = time;
+
+
+  // PLAYER MOVEMENT
+
+  if (
+
+    keys["arrowleft"] ||
+
+    keys["a"] ||
+
+    touchingLeft
+
+  ) {
+
+    player.x -= player.speed * delta;
+
+  }
+
+
+  if (
+
+    keys["arrowright"] ||
+
+    keys["d"] ||
+
+    touchingRight
+
+  ) {
+
+    player.x += player.speed * delta;
+
+  }
+
+
+  // KEEP PLAYER INSIDE SCREEN
+
+  player.x = Math.max(
+
+    0,
+
+    Math.min(
+
+      canvas.width - player.width,
+
+      player.x
+
+    )
+
+  );
+
+
+  // SCORE
+
+  score += delta;
+
+
+  scoreText.textContent =
+
+    Math.floor(score);
+
+
+  // SPAWN ENEMIES
+
+  spawnTimer -= delta;
+
+
+  if (spawnTimer <= 0) {
+
+    spawnBlock();
+
+
+    spawnTimer = Math.max(
+
+      0.2,
+
+      0.7 - score / 100
+
+    );
+
+  }
+
+
+  // MOVE ENEMIES
+
+  for (const block of blocks) {
+
+    block.y += block.speed * delta;
+
+
+    // COLLISION
+
+    if (collision(player, block)) {
+
+      playing = false;
+
+
+      alert(
+
+        "💀 GAME OVER!\n\nScore: " +
+
+        Math.floor(score)
+
+      );
+
+
+      return;
+
+    }
+
+  }
+
+
+  // REMOVE OLD ENEMIES
+
+  blocks = blocks.filter(
+
+    block =>
+
+      block.y < canvas.height + 50
+
+  );
+
+
+  // ========================
+  // DRAW
+  // ========================
+
+  ctx.clearRect(
+
+    0,
+
+    0,
+
+    canvas.width,
+
+    canvas.height
+
+  );
+
+
+  // BACKGROUND
+
+  ctx.fillStyle = "#222";
+
+
+  ctx.fillRect(
+
+    0,
+
+    0,
+
+    canvas.width,
+
+    canvas.height
+
+  );
+
+
+  // PLAYER
+
+  ctx.fillStyle = "#4ade80";
+
+
+  ctx.fillRect(
+
+    player.x,
+
+    player.y,
+
+    player.width,
+
+    player.height
+
+  );
+
+
+  // ENEMIES
+
+  ctx.fillStyle = "#ff4057";
+
+
+  for (const block of blocks) {
+
+    ctx.fillRect(
+
+      block.x,
+
+      block.y,
+
+      block.width,
+
+      block.height
+
+    );
+
+  }
+
+
+  requestAnimationFrame(gameLoop);
+
+}
+
+
+// START BUTTON
+
+startButton.addEventListener(
+
+  "click",
+
+  startGame
+
+);
+
+</script>
+
+</body>
+</html>
