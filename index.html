@@ -87,6 +87,63 @@
         display: none;
       }
     }
+
+    #stats {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+
+    .stat {
+      background: #1b1b1b;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 7px 12px;
+      min-width: 120px;
+      font-weight: bold;
+    }
+
+    #message {
+      min-height: 34px;
+      font-size: 25px;
+      font-weight: 900;
+      margin: 5px 0;
+    }
+
+    #leaderboard {
+      margin: 12px auto;
+      background: #1b1b1b;
+      border: 2px solid #555;
+      border-radius: 12px;
+      padding: 10px;
+      max-width: 420px;
+      text-align: left;
+    }
+
+    #leaderboard h2 {
+      text-align: center;
+      margin: 3px 0 8px;
+      font-size: 22px;
+    }
+
+    .leader-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border-bottom: 1px solid #333;
+    }
+
+    .leader-row:last-child {
+      border-bottom: none;
+    }
+
+    .you {
+      font-weight: 900;
+      text-decoration: underline;
+    }
+
   </style>
 </head>
 
@@ -96,9 +153,18 @@
 
     <h1>💀 Dodge the Chaos</h1>
 
-    <p>
-      Score: <span id="score">0</span>
-    </p>
+    <div id="stats">
+      <div class="stat">Score: <span id="score">0</span></div>
+      <div class="stat">🏆 Personal Best: <span id="personalBest">0</span></div>
+      <div class="stat">🌎 World Best: <span id="worldBest">0</span></div>
+    </div>
+
+    <div id="message"></div>
+
+    <div id="leaderboard">
+      <h2>🏆 WORLD LEADERBOARD</h2>
+      <div id="leaderRows"></div>
+    </div>
 
     <canvas id="canvas" width="600" height="350"></canvas>
 
@@ -119,13 +185,32 @@
   </div>
 
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+
+// ===== ONLINE WORLD LEADERBOARD =====
+// After creating your Supabase project, paste your Project URL and
+// Publishable key below. Never put a secret/service_role key here.
+const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+const onlineLeaderboardEnabled =
+  SUPABASE_URL.startsWith("https://") &&
+  !SUPABASE_URL.includes("PASTE_YOUR") &&
+  !SUPABASE_KEY.includes("PASTE_YOUR");
+
+const supabaseClient = onlineLeaderboardEnabled
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 const scoreText = document.getElementById("score");
 const startButton = document.getElementById("start");
+const personalBestText = document.getElementById("personalBest");
+const worldBestText = document.getElementById("worldBest");
+const leaderRows = document.getElementById("leaderRows");
+const message = document.getElementById("message");
 
 const leftButton = document.getElementById("left");
 const rightButton = document.getElementById("right");
@@ -137,6 +222,8 @@ let score;
 let playing;
 let lastTime;
 let spawnTimer;
+
+updateLeaderboard();
 
 
 const keys = {};
@@ -231,6 +318,109 @@ rightButton.addEventListener("pointerleave", function() {
 
 
 // ========================
+// SCORE / LEADERBOARD
+// ========================
+
+let personalBest = Number(localStorage.getItem("dtcPersonalBest") || 0);
+
+// Local fallback is used until the Supabase settings are filled in.
+// Once connected, every player uses the same online leaderboard.
+let leaderboard = JSON.parse(localStorage.getItem("dtcLeaderboard") || "null");
+
+if (!Array.isArray(leaderboard) || leaderboard.length === 0) {
+  leaderboard = [
+    { name: "ChaosMaster", score: 42 },
+    { name: "DodgeKing", score: 35 },
+    { name: "BlockDodger", score: 28 },
+    { name: "Speedy", score: 21 },
+    { name: "Rookie", score: 14 }
+  ];
+}
+
+function getWorldBest() {
+  return Math.max(0, ...leaderboard.map(entry => Number(entry.score) || 0));
+}
+
+function renderLeaderboard(rows) {
+  leaderboard = rows;
+  leaderboard.sort((a, b) => b.score - a.score);
+  leaderboard = leaderboard.slice(0, 10);
+
+  localStorage.setItem("dtcLeaderboard", JSON.stringify(leaderboard));
+  worldBestText.textContent = getWorldBest();
+  personalBestText.textContent = personalBest;
+
+  leaderRows.innerHTML = leaderboard.map((entry, index) => `
+    <div class="leader-row">
+      <span>${index + 1}. ${String(entry.name).replace(/[<>&"]/g, "")}</span>
+      <span>${entry.score}</span>
+    </div>
+  `).join("");
+}
+
+async function loadOnlineLeaderboard() {
+  if (!onlineLeaderboardEnabled) {
+    renderLeaderboard(leaderboard);
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("scores")
+    .select("name, score")
+    .order("score", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    console.error("Leaderboard load error:", error);
+    renderLeaderboard(leaderboard);
+    return;
+  }
+
+  renderLeaderboard(data || []);
+}
+
+async function saveScore(finalScore) {
+  const final = Math.floor(finalScore);
+
+  if (final > personalBest) {
+    personalBest = final;
+    localStorage.setItem("dtcPersonalBest", personalBest);
+    message.textContent = "🔥 NEW PERSONAL BEST!";
+  }
+
+  if (onlineLeaderboardEnabled) {
+    const playerName = (prompt("You made the leaderboard! Enter your name:") || "Anonymous")
+      .trim()
+      .slice(0, 16) || "Anonymous";
+
+    const { error } = await supabaseClient
+      .from("scores")
+      .insert({ name: playerName, score: final });
+
+    if (error) {
+      console.error("Score upload error:", error);
+      message.textContent = "💀 WOMP WOMP 💀";
+    } else {
+      await loadOnlineLeaderboard();
+      if (final >= getWorldBest()) {
+        message.textContent = "🌎 NEW WORLD BEST!!! 🔥";
+      }
+    }
+  } else {
+    const currentWorldBest = getWorldBest();
+
+    if (final > currentWorldBest) {
+      leaderboard.push({ name: "YOU", score: final });
+      message.textContent = "🌎 NEW WORLD BEST!!! 🔥";
+    } else if (final >= 1) {
+      leaderboard.push({ name: "YOU", score: final });
+    }
+
+    renderLeaderboard(leaderboard);
+  }
+}
+
+// ========================
 // START GAME
 // ========================
 
@@ -270,6 +460,7 @@ function startGame() {
 
 
   startButton.textContent = "RESTART";
+  message.textContent = "";
 
 
   requestAnimationFrame(gameLoop);
@@ -515,10 +706,9 @@ function gameLoop(time) {
 
   // ENEMIES
 
-  ctx.fillStyle = "#ff4057";
-
-
   for (const block of blocks) {
+
+    ctx.fillStyle = block.color;
 
     ctx.fillRect(
 
@@ -539,6 +729,36 @@ function gameLoop(time) {
 
 }
 
+
+function drawGameOver() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#222";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw remaining blocks
+  for (const block of blocks) {
+    ctx.fillStyle = block.color;
+    ctx.fillRect(block.x, block.y, block.width, block.height);
+  }
+
+  // Draw player
+  ctx.fillStyle = "#4ade80";
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.font = "900 52px Arial";
+  ctx.fillText("WOMP WOMP 💀", canvas.width / 2, 135);
+
+  ctx.font = "bold 24px Arial";
+  ctx.fillText("Score: " + Math.floor(score), canvas.width / 2, 180);
+  ctx.fillText("Personal Best: " + personalBest, canvas.width / 2, 215);
+
+  ctx.font = "bold 18px Arial";
+  ctx.fillText("Press PLAY AGAIN to try again!", canvas.width / 2, 255);
+  ctx.textAlign = "left";
+}
 
 // START BUTTON
 
