@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dodge the Chaos</title>
+
+  <script>
+    // Standalone admin-menu opener. This is intentionally independent from
+    // the game's main JavaScript so the settings button cannot be broken by
+    // another feature.
+    window.openDTCAdmin = function () {
+      const menu = document.getElementById("secretMenu");
+      if (!menu) {
+        window.alert("Admin menu is missing.");
+        return false;
+      }
+
+      const password = window.prompt("Secret menu password:");
+      if (password !== "DTC-ADMIN") {
+        if (password !== null) window.alert("Nope 😭");
+        return false;
+      }
+
+      const opening = window.getComputedStyle(menu).display === "none";
+      menu.style.display = opening ? "block" : "none";
+
+      const count = document.getElementById("playersCount");
+      try {
+        const saved = Number(localStorage.getItem("dtcPlayersCount") || 0);
+        if (count) count.textContent = saved;
+      } catch (_) {}
+
+      if (opening) {
+        const input = document.getElementById("adminAnnouncementInput");
+        if (input) setTimeout(function () { input.focus(); }, 50);
+      }
+      return false;
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      margin: 15px 0 6px;
+      font-size: 30px;
+    }
+
+    #gameContainer {
+      width: 100%;
+      max-width: 650px;
+      margin: auto;
+      padding: 0 8px 20px;
+    }
+
+    #stats {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+
+    .stat {
+      background: #1b1b1b;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-weight: bold;
+      min-width: 120px;
+    }
+
+    #message {
+      min-height: 34px;
+      font-size: 24px;
+      font-weight: 900;
+      margin: 4px 0;
+    }
+
+    #authScreen {
+      position: fixed;
+      inset: 0;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    #authBox {
+      width: 100%;
+      max-width: 360px;
+      background: #1b1b1b;
+      border: 2px solid #555;
+      border-radius: 14px;
+      padding: 24px;
+    }
+
+    #authBox h2 {
+      margin: 0 0 18px;
+      font-size: 28px;
+    }
+
+    #authBox input {
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0;
+      border: 1px solid #555;
+      border-radius: 8px;
+      background: #222;
+      color: #fff;
+      font-size: 16px;
+    }
+
+    #passwordWrap {
+      position: relative;
+    }
+
+    #passwordWrap {
+      width: 100%;
+    }
+
+    #passwordWrap input {
+      padding-right: 52px;
+      margin: 6px 0;
+      width: 100%;
+    }
+
+    #showPassword {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px;
+      height: 34px;
+      margin: 0;
+      padding: 0;
+      font-size: 18px;
+      background: transparent;
+      color: #fff;
+      border-radius: 50%;
+    }
+
+    #showPassword:hover {
+      background: #333;
+    }
+
+    #authForm {
+      width: 100%;
+    }
+
+    #authForm input {
+      display: block;
+      appearance: auto;
+      -webkit-appearance: auto;
+    }
+
+    #authBox button {
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    #passwordWrap #showPassword {
+      width: 34px;
+      margin-top: 0;
+    }
+
+    #authSwitch {
+      margin-top: 14px;
+      color: #aaa;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #authMessage {
+      min-height: 20px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      background: #222;
+      border: 3px solid #fff;
+      border-radius: 8px;
+      margin: 10px auto;
+      touch-action: none;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 12px 25px;
+      cursor: pointer;
+    }
+
+    #start {
+      margin: 5px;
+    }
+
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 10px;
+      user-select: none;
+    }
+
+    .control {
+      width: 110px;
+      height: 65px;
+      font-size: 32px;
+      background: #333;
+      color: #fff;
+      border: 2px solid #fff;
+      touch-action: none;
+    }
+
+    .control:active {
+      background: #666;
+      transform: scale(.95);
+    }
+
+    #leaderboard {
+      margin: 10px auto;
+      max-width: 430px;
+      background: #1b1b1b;
+      border: 2px solid #555;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: left;
+    }
+
+    #secretMenu {
+      display: none;
+      margin: 10px auto;
+      max-width: 430px;
+      background: #161616;
+      border: 1px solid #666;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    #secretMenu h3 {
+      margin: 2px 0 8px;
+    }
+
+    #announcement {
+      display: none;
+      margin: 10px auto;
+      max-width: 430px;
+      background: #202020;
+      border: 2px solid #555;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    #announcement h2 {
+      margin: 0 0 7px;
+      font-size: 18px;
+    }
+
+    #announcementText {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: #fff;
+    }
+
+    #adminAnnouncementBox {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #444;
+    }
+
+    #adminAnnouncementInput {
+      width: 100%;
+      min-height: 70px;
+      box-sizing: border-box;
+      resize: vertical;
+      margin: 8px 0;
+      padding: 9px;
+      border-radius: 8px;
+      border: 1px solid #555;
+      background: #101010;
+      color: #fff;
+      font: inherit;
+    }
+
+    #publishAnnouncement {
+      width: 100%;
+      padding: 9px;
+      border-radius: 8px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    #announcementStatus {
+      min-height: 18px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    #leaderboard h2 {
+      text-align: center;
+      margin: 3px 0 4px;
+      font-size: 21px;
+    }
+
+    #leaderStatus {
+      text-align: center;
+      color: #aaa;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .leader-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 8px;
+      border-bottom: 1px solid #333;
+    }
+
+    .leader-row:last-child { border-bottom: 0; }
+
+    @media (min-width: 700px) {
+      #controls { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="authScreen">
+    <div id="authBox">
+      <h2 id="authTitle">🎮 Dodge the Chaos</h2>
+      <form id="authForm" autocomplete="on">
+        <input id="authUsername" name="username" type="text" maxlength="16" placeholder="Username" autocomplete="username" spellcheck="false">
+        <div id="passwordWrap">
+          <input id="authPassword" name="password" type="password" placeholder="Password" autocomplete="current-password">
+          <button id="showPassword" type="button" aria-label="Show password" title="Show password">👁️</button>
+        </div>
+        <button id="authButton" type="submit">LOG IN</button>
+      </form>
+      <div id="authSwitch">Don't have an account? Sign up</div>
+      <div id="authMessage"></div>
+    </div>
+  </div>
+
+  <div id="gameContainer">
+    <h1>💀 Dodge the Chaos</h1>
+
+    <div id="stats">
+      <div class="stat">Score: <span id="score">0</span></div>
+      <div class="stat">🏆 Personal Best: <span id="personalBest">0</span></div>
+      <div class="stat">🌎 World Best: <span id="worldBest">—</span></div>
+    </div>
+
+    <div id="message"></div>
+
+    <canvas id="canvas" width="600" height="350"></canvas>
+
+    <button id="start">START GAME</button>
+
+    <div id="controls">
+      <button class="control" id="left" aria-label="Move left">⬅️</button>
+      <button class="control" id="right" aria-label="Move right">➡️</button>
+    </div>
+
+    <div id="announcement">
+      <h2>📢 ADMIN MESSAGE</h2>
+      <div id="announcementText"></div>
+    </div>
+
+    <div id="leaderboard">
+      <h2>🏆 WORLD LEADERBOARD</h2>
+      <div id="leaderStatus">Online leaderboard will appear when connected.</div>
+      <div id="leaderRows">
+        <div class="leader-row"><span>No online scores yet</span><span>—</span></div>
+      </div>
+    </div>
+
+    <button id="secretButton" type="button"
+      onclick="return window.openDTCAdmin();"
+      style="margin-top:8px;background:#222;color:#777;font-size:12px;padding:6px 10px;cursor:pointer;position:relative;z-index:99999;pointer-events:auto;">
+      ⚙️
+    </button>
+
+    <div id="secretMenu">
+      <h3>🔒 Site Stats</h3>
+      <div>People who have played: <strong id="playersCount">0</strong></div>
+      <div style="font-size:12px;color:#888;margin-top:6px;">
+        This is a private local counter for testing.
+      </div>
+
+      <div id="adminAnnouncementBox">
+        <h3>📢 Send a message to everyone</h3>
+        <textarea id="adminAnnouncementInput" maxlength="300"
+          placeholder="Type your message here..."></textarea>
+        <button id="publishAnnouncement" type="button">PUBLISH MESSAGE</button>
+        <div id="announcementStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase is optional. The game NEVER depends on it to start. -->
+  <script>
+    window.supabaseLoadFailed = false;
+    const supabaseLoader = document.createElement("script");
+    supabaseLoader.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    supabaseLoader.onload = () => window.dispatchEvent(new Event("supabase-ready"));
+    supabaseLoader.onerror = () => {
+      window.supabaseLoadFailed = true;
+      window.dispatchEvent(new Event("supabase-failed"));
+    };
+    document.head.appendChild(supabaseLoader);
+  </script>
+
+  <script>
+    "use strict";
+
+    // ========================
+    // OPTIONAL ONLINE LEADERBOARD
+    // ========================
+    // These stay placeholders until the Supabase project is created.
+    // The game works normally without them.
+    const SUPABASE_URL = "https://mvqtycpfvpqqmhdexont.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_i2kvqWO4HvT-3OtKcM2Dnw_QlsBPEG5";
+
+    // Supabase cannot be used reliably when this HTML is opened directly
+    // as file:///... in Chrome. The world leaderboard needs the web version
+    // of the game (for example your published site).
+    const openedFromLocalFile = window.location.protocol === "file:";
+
+    let supabaseClient = null;
+
+    function initSupabase() {
+      if (supabaseClient) return true;
+      if (!window.supabase || typeof window.supabase.createClient !== "function") return false;
+      try {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        return true;
+      } catch (error) {
+        console.error("Supabase setup error:", error);
+        return false;
+      }
+    }
+
+    window.addEventListener("supabase-ready", () => {
+      if (initSupabase()) {
+        loadLeaderboard();
+        loadAnnouncement();
+      }
+    });
+
+    // ========================
+    // DOM
+    // ========================
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const scoreText = document.getElementById("score");
+    const personalBestText = document.getElementById("personalBest");
+    const worldBestText = document.getElementById("worldBest");
+    const startButton = document.getElementById("start");
+    const message = document.getElementById("message");
+    const leaderRows = document.getElementById("leaderRows");
+    const leaderStatus = document.getElementById("leaderStatus");
+
+    const leftButton = document.getElementById("left");
+    const rightButton = document.getElementById("right");
+
+    const showPasswordButton = document.getElementById("showPassword");
+    const secretButton = document.getElementById("secretButton");
+    const secretMenu = document.getElementById("secretMenu");
+    const playersCountText = document.getElementById("playersCount");
+    const announcement = document.getElementById("announcement");
+    const announcementText = document.getElementById("announcementText");
+    const adminAnnouncementInput = document.getElementById("adminAnnouncementInput");
+    const publishAnnouncement = document.getElementById("publishAnnouncement");
+    const announcementStatus = document.getElementById("announcementStatus");
+
+    function getPlayerCount() {
+      try {
+        return Number(localStorage.getItem("dtcPlayersCount") || 0);
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function setPlayerCount(value) {
+      try {
+        localStorage.setItem("dtcPlayersCount", String(value));
+      } catch (_) {}
+    }
+
+    function countPlayerOnce(username) {
+      try {
+        const key = "dtcCounted_" + username;
+        if (!localStorage.getItem(key)) {
+          setPlayerCount(getPlayerCount() + 1);
+          localStorage.setItem(key, "1");
+        }
+        playersCountText.textContent = getPlayerCount();
+      } catch (_) {}
+    }
+
+    playersCountText.textContent = getPlayerCount();
+
+    showPasswordButton.addEventListener("click", function (event) {
+      event.preventDefault();
+      const showing = authPassword.type === "text";
+      authPassword.type = showing ? "password" : "text";
+      showPasswordButton.textContent = showing ? "👁️" : "🙈";
+      showPasswordButton.setAttribute(
+        "aria-label",
+        showing ? "Show password" : "Hide password"
+      );
+      showPasswordButton.title = showing ? "Show password" : "Hide password";
+      authPassword.focus();
+    });
+
+    // Secret/admin menu
+    // Clicking ⚙️ asks for the admin password and then opens the controls.
+    secretButton.onclick = function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const password = prompt("Secret menu password:");
+      if (password === "DTC-ADMIN") {
+        const isOpen = secretMenu.style.display === "block";
+        secretMenu.style.display = isOpen ? "none" : "block";
+        playersCountText.textContent = getPlayerCount();
+
+        if (!isOpen && adminAnnouncementInput) {
+          setTimeout(() => adminAnnouncementInput.focus(), 0);
+        }
+      } else if (password !== null) {
+        alert("Nope 😭");
+      }
+    };
+
+
+    // ========================
+    // SECRET ADMIN MENU BUTTON
+    // ========================
+    document.getElementById("secretButton").addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const adminMenu = document.getElementById("secretMenu");
+      if (!adminMenu) {
+        alert("Admin menu is missing from this game file.");
+        return;
+      }
+
+      const password = window.prompt("Secret menu password:");
+      if (password === "DTC-ADMIN") {
+        const opening = getComputedStyle(adminMenu).display === "none";
+        adminMenu.style.display = opening ? "block" : "none";
+
+        const count = document.getElementById("playersCount");
+        if (count && typeof getPlayerCount === "function") {
+          count.textContent = getPlayerCount();
+        }
+
+        if (opening) {
+          const input = document.getElementById("adminAnnouncementInput");
+          if (input) setTimeout(() => input.focus(), 50);
+        }
+      } else if (password !== null) {
+        window.alert("Nope 😭");
+      }
+    });
+
+    // ========================
+    // ADMIN ANNOUNCEMENTS
+    // ========================
+    async function loadAnnouncement() {
+      if (openedFromLocalFile || !initSupabase()) return;
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("announcements")
+          .select("message, created_at")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data && data.message) {
+          announcementText.textContent = String(data.message).slice(0, 300);
+          announcement.style.display = "block";
+        } else {
+          announcement.style.display = "none";
+        }
+      } catch (error) {
+        console.error("Could not load announcement:", error);
+        announcement.style.display = "none";
+      }
+    }
+
+    async function publishAdminAnnouncement() {
+      const message = String(adminAnnouncementInput.value || "").trim().slice(0, 300);
+
+      if (!message) {
+        announcementStatus.textContent = "Type a message first.";
+        return;
+      }
+
+      if (openedFromLocalFile) {
+        announcementStatus.textContent = "Use the hosted website to publish.";
+        return;
+      }
+
+      if (!initSupabase()) {
+        announcementStatus.textContent = "Supabase is not connected.";
+        return;
+      }
+
+      publishAnnouncement.disabled = true;
+      announcementStatus.textContent = "Publishing...";
+
+      try {
+        const { error } = await supabaseClient
+          .from("announcements")
+          .insert([{ message }]);
+
+        if (error) throw error;
+
+        adminAnnouncementInput.value = "";
+        announcementStatus.textContent = "Published! Everyone will see it.";
+        await loadAnnouncement();
+      } catch (error) {
+        console.error("Could not publish announcement:", error);
+        announcementStatus.textContent =
+          "Publish failed: " + (error.message || "Unknown error");
+      } finally {
+        publishAnnouncement.disabled = false;
+      }
+    }
+
+    publishAnnouncement.addEventListener("click", publishAdminAnnouncement);
+    loadAnnouncement();
+
+    // ========================
+    // LOCAL LOGIN / SIGN UP
+    // ========================
+    const authScreen = document.getElementById("authScreen");
+    const authTitle = document.getElementById("authTitle");
+    const authUsername = document.getElementById("authUsername");
+    const authPassword = document.getElementById("authPassword");
+    const authButton = document.getElementById("authButton");
+    const authForm = document.getElementById("authForm");
+    const authSwitch = document.getElementById("authSwitch");
+    const authMessage = document.getElementById("authMessage");
+
+    let authMode = "login";
+    let currentUsername = "";
+
+    function getAccounts() {
+      try {
+        const raw = localStorage.getItem("dtcAccounts_v3");
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed
+          : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveAccounts(accounts) {
+      localStorage.setItem("dtcAccounts_v3", JSON.stringify(accounts));
+    }
+
+    function showAuthMessage(message, good = false) {
+      authMessage.textContent = message;
+      authMessage.style.color = good ? "#4ade80" : "#ff6b6b";
+    }
+
+    function updateAuthScreen() {
+      const login = authMode === "login";
+      authTitle.textContent = login ? "🎮 Dodge the Chaos" : "🎮 Create Account";
+      authButton.textContent = login ? "LOG IN" : "SIGN UP";
+      authSwitch.textContent = login
+        ? "Don't have an account? Sign up"
+        : "Already have an account? Log in";
+      authPassword.autocomplete = login ? "current-password" : "new-password";
+      authMessage.textContent = "";
+    }
+
+    authSwitch.addEventListener("click", function () {
+      authMode = authMode === "login" ? "signup" : "login";
+      updateAuthScreen();
+    });
+
+    authForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const username = authUsername.value.trim();
+      const password = authPassword.value;
+      const accountKey = username.toLowerCase();
+
+      if (!username || !password) {
+        showAuthMessage("Enter a username and password.");
+        return;
+      }
+
+      if (username.length < 3) {
+        showAuthMessage("Username must be at least 3 characters.");
+        return;
+      }
+
+      if (password.length < 4) {
+        showAuthMessage("Password must be at least 4 characters.");
+        return;
+      }
+
+      const accounts = getAccounts();
+
+      if (authMode === "signup") {
+        // A username is only "taken" if it already exists in the real
+        // account database. A fresh install/test of this feature starts
+        // with an empty account store.
+        const existingAccount = accounts[accountKey];
+
+        if (existingAccount !== undefined && existingAccount !== null) {
+          showAuthMessage("That username is already taken.");
+          return;
+        }
+
+        accounts[accountKey] = {
+          username: username,
+          password: password
+        };
+
+        saveAccounts(accounts);
+        currentUsername = username;
+        localStorage.setItem("dtcPlayerName", username);
+        countPlayerOnce(username);
+
+        personalBest = loadPersonalBest(username);
+        personalBestText.textContent = personalBest;
+
+        showAuthMessage("Account created!", true);
+        authScreen.style.display = "none";
+        authPassword.value = "";
+        loadLeaderboard();
+      } else {
+        const account = accounts[accountKey];
+
+        const correctPassword =
+          account && typeof account === "object"
+            ? account.password
+            : account;
+
+        if (!account || correctPassword !== password) {
+          showAuthMessage("Wrong username or password.");
+          return;
+        }
+
+        currentUsername =
+          account && typeof account === "object"
+            ? account.username
+            : username;
+
+        countPlayerOnce(currentUsername);
+
+        personalBest = loadPersonalBest(currentUsername);
+        personalBestText.textContent = personalBest;
+
+        authScreen.style.display = "none";
+        authPassword.value = "";
+        loadLeaderboard();
+      }
+    });
+
+    updateAuthScreen();
+
+
+    // ========================
+    // GAME STATE
+    // ========================
+    let player = null;
+    let blocks = [];
+    let score = 0;
+    let playing = false;
+    let lastTime = 0;
+    let spawnTimer = 0;
+
+    const keys = {
+      left: false,
+      right: false
+    };
+
+    let touchingLeft = false;
+    let touchingRight = false;
+
+    const BLOCK_COLORS = [
+      "#ff4057",
+      "#a855f7",
+      "#3b82f6",
+      "#22c55e",
+      "#f59e0b",
+      "#ec4899",
+      "#06b6d4"
+    ];
+
+    // ========================
+    // PERSONAL BEST
+    // ========================
+    let personalBest = 0;
+
+    function personalBestKey(username) {
+      return "dtcPersonalBest_" + String(username || "guest").toLowerCase();
+    }
+
+    function loadPersonalBest(username) {
+      try {
+        return Number(localStorage.getItem(personalBestKey(username))) || 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function savePersonalBest(username, value) {
+      try {
+        localStorage.setItem(personalBestKey(username), String(value));
+      } catch (_) {}
+    }
+
+    personalBestText.textContent = "0";
+
+    // ========================
+    // KEYBOARD CONTROLS
+    // ========================
+    document.addEventListener("keydown", function (event) {
+      const target = event.target;
+      const typing = target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+
+      if (typing) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "arrowleft" || key === "a") {
+        keys.left = true;
+        event.preventDefault();
+      }
+
+      if (key === "arrowright" || key === "d") {
+        keys.right = true;
+        event.preventDefault();
+      }
+
+      if ((key === " " || key === "enter") && !playing) {
+        startGame();
+      }
+    });
+
+    document.addEventListener("keyup", function (event) {
+      const key = event.key.toLowerCase();
+
+      if (key === "arrowleft" || key === "a") keys.left = false;
+      if (key === "arrowright" || key === "d") keys.right = false;
+    });
+
+    // ========================
+    // MOBILE CONTROLS
+    // ========================
+    function setLeft(value) {
+      touchingLeft = value;
+    }
+
+    function setRight(value) {
+      touchingRight = value;
+    }
+
+    function bindHoldButton(button, setter) {
+      button.addEventListener("pointerdown", function (event) {
+        event.preventDefault();
+        setter(true);
+        try { button.setPointerCapture(event.pointerId); } catch (_) {}
+      });
+
+      button.addEventListener("pointerup", function (event) {
+        event.preventDefault();
+        setter(false);
+      });
+
+      button.addEventListener("pointercancel", function () {
+        setter(false);
+      });
+
+      button.addEventListener("lostpointercapture", function () {
+        setter(false);
+      });
+    }
+
+    bindHoldButton(leftButton, setLeft);
+    bindHoldButton(rightButton, setRight);
+
+    // ========================
+    // START / RESTART
+    // ========================
+    function startGame() {
+      player = {
+        x: (canvas.width - 50) / 2,
+        y: canvas.height - 35,
+        width: 50,
+        height: 20,
+        speed: 300
+      };
+
+      blocks = [];
+      score = 0;
+      playing = true;
+      spawnTimer = 0.35;
+      lastTime = performance.now();
+
+      scoreText.textContent = "0";
+      message.textContent = "";
+      startButton.textContent = "RESTART";
+
+      // Draw immediately so there is never a blank frame.
+      drawGame();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ========================
+    // CREATE BLOCK
+    // ========================
+    function spawnBlock() {
+      const size = 20 + Math.random() * 25;
+
+      blocks.push({
+        x: Math.random() * (canvas.width - size),
+        y: -size,
+        width: size,
+        height: size,
+        speed: 150 + Math.random() * 150 + Math.min(score * 2, 180),
+        color: BLOCK_COLORS[
+          Math.floor(Math.random() * BLOCK_COLORS.length)
+        ]
+      });
+    }
+
+    // ========================
+    // COLLISION
+    // ========================
+    function collision(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    // ========================
+    // GAME LOOP
+    // ========================
+    function gameLoop(time) {
+      if (!playing) return;
+
+      // Protect against huge time jumps after a tab switch.
+      const delta = Math.min((time - lastTime) / 1000, 0.05);
+      lastTime = time;
+
+      if (keys.left || touchingLeft) {
+        player.x -= player.speed * delta;
+      }
+
+      if (keys.right || touchingRight) {
+        player.x += player.speed * delta;
+      }
+
+      player.x = Math.max(
+        0,
+        Math.min(canvas.width - player.width, player.x)
+      );
+
+      score += delta;
+      scoreText.textContent = Math.floor(score);
+
+      spawnTimer -= delta;
+
+      if (spawnTimer <= 0) {
+        spawnBlock();
+
+        // Gets harder, but never spawns faster than every 0.20 seconds.
+        spawnTimer = Math.max(0.20, 0.70 - score / 100);
+      }
+
+      for (const block of blocks) {
+        block.y += block.speed * delta;
+
+        if (collision(player, block)) {
+          endGame();
+          return;
+        }
+      }
+
+      blocks = blocks.filter(
+        block => block.y < canvas.height + 60
+      );
+
+      drawGame();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ========================
+    // END GAME
+    // ========================
+    function endGame() {
+      playing = false;
+
+      const finalScore = Math.floor(score);
+      const isNewPB = finalScore > personalBest;
+
+      if (isNewPB) {
+        personalBest = finalScore;
+
+        savePersonalBest(currentUsername, personalBest);
+
+        personalBestText.textContent = personalBest;
+      }
+
+      message.textContent = isNewPB
+        ? "🔥 NEW PERSONAL BEST!"
+        : "💀 WOMP WOMP 💀";
+
+      startButton.textContent = "PLAY AGAIN";
+
+      drawGameOver();
+
+      // This never blocks or stops the game if the online service
+      // isn't connected.
+      submitScore(finalScore);
+    }
+
+    // ========================
+    // DRAW GAME
+    // ========================
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Simple background grid.
+      ctx.strokeStyle = "#2d2d2d";
+      ctx.lineWidth = 1;
+
+      for (let x = 0; x <= canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y <= canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      if (!player) return;
+
+      // Player.
+      ctx.fillStyle = "#4ade80";
+      ctx.fillRect(
+        player.x,
+        player.y,
+        player.width,
+        player.height
+      );
+
+      // Player outline.
+      ctx.strokeStyle = "#fff";
+      ctx.strokeRect(
+        player.x,
+        player.y,
+        player.width,
+        player.height
+      );
+
+      // Chaos blocks.
+      for (const block of blocks) {
+        ctx.fillStyle = block.color;
+        ctx.fillRect(
+          block.x,
+          block.y,
+          block.width,
+          block.height
+        );
+
+        ctx.strokeStyle = "#fff";
+        ctx.strokeRect(
+          block.x,
+          block.y,
+          block.width,
+          block.height
+        );
+      }
+    }
+
+    // ========================
+    // GAME OVER SCREEN
+    // ========================
+    function drawGameOver() {
+      drawGame();
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+
+      ctx.font = "900 46px Arial";
+      ctx.fillText(
+        "WOMP WOMP 💀",
+        canvas.width / 2,
+        125
+      );
+
+      ctx.font = "bold 24px Arial";
+      ctx.fillText(
+        "Score: " + Math.floor(score),
+        canvas.width / 2,
+        170
+      );
+
+      ctx.fillText(
+        "Personal Best: " + personalBest,
+        canvas.width / 2,
+        205
+      );
+
+      ctx.font = "bold 18px Arial";
+      ctx.fillText(
+        "Press PLAY AGAIN!",
+        canvas.width / 2,
+        250
+      );
+
+      ctx.textAlign = "left";
+    }
+
+    // ========================
+    // ONLINE LEADERBOARD
+    // ========================
+    async function submitScore(finalScore) {
+      if (openedFromLocalFile) {
+        leaderStatus.textContent = "World leaderboard needs the hosted website version of the game.";
+        return;
+      }
+      if (!initSupabase()) {
+        leaderStatus.textContent = "Online leaderboard is connecting...";
+        return;
+      }
+
+      const name = String(
+        currentUsername || localStorage.getItem("dtcPlayerName") || "Anonymous"
+      )
+        .replace(/[<>]/g, "")
+        .trim()
+        .slice(0, 16) || "Anonymous";
+
+      try {
+        localStorage.setItem("dtcPlayerName", name);
+      } catch (_) {}
+
+      const scoreValue = Math.max(0, Math.floor(Number(finalScore) || 0));
+      const { data, error } = await supabaseClient
+        .from("leaderboard")
+        .insert([{ name, score: scoreValue }])
+        .select("id, name, score, created_at")
+        .single();
+
+      if (error) {
+        console.error("Could not submit score:", error);
+        // Show the real Supabase error while debugging instead of hiding it.
+        leaderStatus.textContent = "Online save failed: " + (error.message || "Unknown error");
+        return;
+      }
+
+      console.log("Score saved online:", data);
+      leaderStatus.textContent = "Score saved! Loading world leaderboard...";
+      await loadLeaderboard();
+    }
+
+    async function loadLeaderboard() {
+      if (openedFromLocalFile) {
+        worldBestText.textContent = "—";
+        leaderStatus.textContent = "World leaderboard works on the hosted website, not a local file.";
+        return;
+      }
+      if (!initSupabase()) {
+        worldBestText.textContent = "—";
+        leaderStatus.textContent = window.supabaseLoadFailed
+          ? "Supabase library could not load."
+          : "Online leaderboard is connecting...";
+        return;
+      }
+
+      leaderStatus.textContent = "Loading world leaderboard...";
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("leaderboard")
+          .select("id, name, score, created_at")
+          .order("score", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(100);
+
+        if (error) throw error;
+        renderLeaderboard(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Could not load leaderboard:", error);
+        worldBestText.textContent = "—";
+        leaderRows.innerHTML =
+          '<div class="leader-row"><span>Leaderboard unavailable</span><span>—</span></div>';
+        leaderStatus.textContent = "Could not load online scores.";
+      }
+    }
+
+    function renderLeaderboard(rows) {
+      const sorted = [...rows]
+        .filter(entry => entry && Number.isFinite(Number(entry.score)))
+        .sort((a, b) => {
+          const scoreDiff = Number(b.score) - Number(a.score);
+          if (scoreDiff !== 0) return scoreDiff;
+          return String(a.created_at || "").localeCompare(String(b.created_at || ""));
+        });
+
+      if (sorted.length === 0) {
+        worldBestText.textContent = "0";
+        leaderRows.innerHTML =
+          '<div class="leader-row"><span>No scores yet</span><span>—</span></div>';
+        leaderStatus.textContent = "Be the first player on the leaderboard!";
+        return;
+      }
+
+      worldBestText.textContent = Math.floor(Number(sorted[0].score) || 0);
+      leaderStatus.textContent = "Top 10 players worldwide.";
+
+      leaderRows.innerHTML = sorted
+        .slice(0, 10)
+        .map((entry, index) => {
+          const safeName = String(entry.name || "Anonymous")
+            .replace(/[<>&\"]/g, "");
+          const rank = index + 1;
+          const scoreValue = Math.floor(Number(entry.score) || 0);
+          const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+
+          return `
+            <div class="leader-row">
+              <span>${medal} ${safeName}</span>
+              <span>${scoreValue}</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    // ========================
+    // INITIAL SCREEN
+    // ========================
+    drawGame();
+    loadLeaderboard();
+
+    startButton.addEventListener("click", startGame);
+  </script>
+</body>
+</html>
